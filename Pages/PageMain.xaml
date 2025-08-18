@@ -1,0 +1,27 @@
+﻿<Page x:Class="IPCamPlayer.Pages.PageMain"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+      xmlns:local="clr-namespace:IPCamPlayer.Pages"
+      mc:Ignorable="d"
+      d:DesignHeight="450" d:DesignWidth="800"
+      Title="PageMain">
+
+    <DockPanel Background="White" LastChildFill="False">
+        <TextBlock Text="Опис IPCamPlayer" FontSize="18" DockPanel.Dock="Top"/>
+        <Separator DockPanel.Dock="Top"/>
+        <TextBlock TextWrapping="Wrap" DockPanel.Dock="Top" Margin="5">
+            <Run Text="WPF застосунок для програвання відео з IP-камер. Підтримує кілька протоколів (ONVIF, ISAPI, RTSP) і різні плелери під капотом."/><LineBreak/><LineBreak/>
+            <Run>Сторінки (ліве меню):</Run><LineBreak/>
+            <Run FontWeight="Bold" Text="  - OnVif  "/><Run> з'єднання з IP кмерою по OnVif, плеєр FlyLeaf;</Run><LineBreak/>
+            <LineBreak/>
+            <Run>Можливості</Run><LineBreak/>
+            <Run>- 🎥 Протоколи: ONVIF, ISAPI, RTSP</Run><LineBreak/>
+            <Run>- 🔌 Плеєри: FFmpeg, Flyleaf, WritableBitmap </Run><LineBreak/>
+            <Run>- 🕹️ ONVIF: Device, Media, Media2"</Run><LineBreak/>
+
+           
+        </TextBlock>
+    </DockPanel>
+</Page>
