@@ -7,9 +7,15 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
   </PropertyGroup>
-
+	<ItemGroup>
+		<PackageReference Include="System.ServiceModel.Http" Version="8.*" />
+		<PackageReference Include="System.ServiceModel.NetTcp" Version="8.*" />
+	</ItemGroup>
   <ItemGroup>
     <PackageReference Include="FlyleafLib.Controls.WPF" Version="1.4.6" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\NEW_WORK\VIY_TERMINAL_PROJECT\GENERIC_LIBRARY\OnVifLibrary\OnVifLibrary.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -37,6 +43,10 @@
     <None Update="FFMPEG\swscale-8.dll">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Models\" />
   </ItemGroup>
 
 

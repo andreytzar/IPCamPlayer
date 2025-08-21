@@ -34,17 +34,19 @@
                     </Grid.RowDefinitions>
                     <DockPanel Margin="3">
                         <TextBlock Text="Адреса камери: " DockPanel.Dock="Left"/>
-                        <TextBox Text="" DockPanel.Dock="Left"/>
+                        <TextBox Text="{Binding Url}" DockPanel.Dock="Left"/>
                     </DockPanel>
                     <StackPanel Margin="3" Orientation="Horizontal" Grid.Row="1">
                         <TextBlock Text="Логін: " VerticalAlignment="Center"/>
-                        <TextBox Text="" Width="100"/>
+                        <TextBox Text="{Binding Login}" Width="100"/>
                         <TextBlock Text="Пароль:" Margin="5,0" VerticalAlignment="Center"/>
-                        <PasswordBox Password="" Width="100"/>
+                        <PasswordBox x:Name="passBox" Width="100"/>
                         <ComboBox Width="100" Margin="5,0"/>
                         <ComboBox Width="100" />
                     </StackPanel>
+                    <TextBox Grid.Row="2" Text="{Binding StatusOnvif}" TextWrapping="Wrap"/>
                 </Grid>
+                <Button Content="Connect" Grid.Column="1" Grid.RowSpan="10" Margin="5" FontSize="14" FontWeight="Bold" Background="{x:Null}" VerticalAlignment="Top" Width="50" Click="Connect_Click"/>
             </Grid>
         </Grid>
     </DockPanel>
