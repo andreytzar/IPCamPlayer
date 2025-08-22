@@ -42,13 +42,17 @@ namespace IPCamPlayer.Classes.FFMPG
 
         object _lock = new object();
         bool _isbusy = false;
+
         public FFMPGPlayer()
         {
             ffmpeg.RootPath = ffpath;
             ffmpeg.avdevice_register_all();
         }
+        public void Stop() => PlayerSratus = PlayerSratus.Stopped;
 
-        public void PlayRtspInternal(string rtps)
+        public void Play(string rtsp) => Task.Run(() => PlayRtspInternal(rtsp));
+
+        void PlayRtspInternal(string rtsp)
         {
             //lock (_lock)
             //{
@@ -58,16 +62,25 @@ namespace IPCamPlayer.Classes.FFMPG
             try
             {
                 PlayerSratus = PlayerSratus.Connecting;
-                Status($"Opening rtsp {rtps}");
+                Thread.Sleep(1000);
+ 
+                Status($"Opening rtsp {rtsp}");
                 int err = 0; _videoStreamIndex = -1;
                 _pFormatContext = ffmpeg.avformat_alloc_context();
                 var cont = _pFormatContext;
-                err = ffmpeg.avformat_open_input(&cont, rtps, null, null);
+                err = ffmpeg.avformat_open_input(&cont, rtsp, null, null);
                 if (err < 0)
+                {
+                    _pFormatContext = null;
                     Error("Couldn't open open rtsp", err);
+                    return;
+                }
                 err = ffmpeg.avformat_find_stream_info(_pFormatContext, null);
                 if (err < 0)
+                {
                     Error("Failed to find information about the stream", err);
+                    return;
+                }
 
                 FindVideoSreamIndex();
                 if (_videoStreamIndex == -1)
@@ -77,17 +90,26 @@ namespace IPCamPlayer.Classes.FFMPG
                 var _pCodec = ffmpeg.avcodec_find_decoder(codecpar->codec_id);
 
                 if (_pCodec == null)
+                {
                     Error($"Codec {codecpar->codec_id} Not Found");
+                    return;
+                }
 
                 _pCodecContext = ffmpeg.avcodec_alloc_context3(_pCodec);
 
                 err = ffmpeg.avcodec_parameters_to_context(_pCodecContext, codecpar);
-                if (err <0)
+                if (err < 0)
+                {
                     Error($"Codec Context not Inited", err);
+                    return;
+                }
 
                 err = ffmpeg.avcodec_open2(_pCodecContext, _pCodec, null);
                 if (err < 0)
+                {
                     Error($"Codec Context not Inited", err);
+                    return;
+                }
 
                 ProcessFrames();
             }
@@ -106,8 +128,7 @@ namespace IPCamPlayer.Classes.FFMPG
         void ProcessFrames()
         {
             AVFrame* _pFrame = ffmpeg.av_frame_alloc(); ;
-            AVFrame* _poutputframe = ffmpeg.av_frame_alloc();
-            AVPacket* _pPacket = ffmpeg.av_packet_alloc(); 
+            AVPacket* _pPacket = ffmpeg.av_packet_alloc();
             SwsContext* _pSwsContext = null;
             try
             {
@@ -123,68 +144,51 @@ namespace IPCamPlayer.Classes.FFMPG
                     _bitmap = new WriteableBitmap(width, height, 96, 96, PixelFormats.Bgr24, null);
                     OnImageSourceChanged?.Invoke(this, _bitmap);
                 });
-               
 
-                byte_ptrArray4 dstData = new byte_ptrArray4();
-                int_array4 dstLinesize = new int_array4();
 
-                _poutputframe->data[0] = dstData[0];
-                _poutputframe->linesize[0] = dstLinesize[0];
+                byte_ptrArray4 dstData = new();
+                int_array4 dstLinesize = new();
 
-                int bufferSize = ffmpeg.av_image_alloc(ref dstData, ref dstLinesize, width,
-                    height, AVPixelFormat.AV_PIX_FMT_BGR24, 1);
+                byte[] buffer = new byte[width * height * 3];
 
-                PlayerSratus = PlayerSratus.Play;
-                while (PlayerSratus == PlayerSratus.Play)
+
+                fixed (byte* pBuffer = buffer)
                 {
-                    int ret = ffmpeg.av_read_frame(_pFormatContext, _pPacket);
-                    if (ret < 0)
+                    ffmpeg.av_image_fill_arrays(
+                        ref dstData, ref dstLinesize, pBuffer,
+                        AVPixelFormat.AV_PIX_FMT_BGR24, width, height, 1
+                    );
+                    PlayerSratus = PlayerSratus.Play;
+
+                    while (PlayerSratus == PlayerSratus.Play)
                     {
-                        if (ret == ffmpeg.AVERROR_EOF)
+                        if (ffmpeg.av_read_frame(_pFormatContext, _pPacket) < 0)
                             break;
-                        continue;
-                    }
 
-                    if (_pPacket->stream_index == _videoStreamIndex)
-                    {
-                        int err=ffmpeg.avcodec_send_packet(_pCodecContext, _pPacket);
-                        err = ffmpeg.avcodec_receive_frame(_pCodecContext, _pFrame);
-                        string s=err.av_errorToString();
-                        if (err >= 0)
+                        if (_pPacket->stream_index == _videoStreamIndex)
                         {
-                            ffmpeg.sws_scale(
-                                _pSwsContext, _pFrame->data, _pFrame->linesize,
-                                0, height, dstData, dstLinesize
-                            );
-                            //try
-                            //{
-                            //    Marshal.ReadByte((IntPtr)_poutputframe->data[0]);
-                            //}
-                            //catch (AccessViolationException)
-                            //{
-                            //    continue; // Пам’ять недоступна
-                            //}
-
-                            _poutputframe->width = width;
-                            _poutputframe->height = height;
-                            _poutputframe->format = _pFrame->format;
-                            int stride = _poutputframe->linesize[0];
-                            
-                            Application.Current.Dispatcher.Invoke(() =>
+                            if (ffmpeg.avcodec_send_packet(_pCodecContext, _pPacket) < 0) continue;
+                            if (ffmpeg.avcodec_receive_frame(_pCodecContext, _pFrame) >= 0)
                             {
-                                _bitmap.Lock();
-                                for (int y = 0; y < height; y++)
+                                ffmpeg.sws_scale(
+                                    _pSwsContext, _pFrame->data, _pFrame->linesize,
+                                    0, height, dstData, dstLinesize
+                                );
+
+                                Application.Current.Dispatcher.Invoke(() =>
                                 {
-                                    IntPtr src = (IntPtr)(_poutputframe->data[0] + y * _poutputframe->linesize[0]);
-                                    Int32Rect rect = new Int32Rect(0, y, width, 1);
-                                    _bitmap.WritePixels(rect, src, stride, stride);
-                                }
-                                _bitmap.AddDirtyRect(new Int32Rect(0, 0, width, height));
-                                _bitmap.Unlock();
-                            });
+                                    if (_bitmap != null)
+                                    {
+                                        _bitmap.Lock();
+                                        Marshal.Copy(buffer, 0, _bitmap.BackBuffer, buffer.Length);
+                                        _bitmap.AddDirtyRect(new Int32Rect(0, 0, width, height));
+                                        _bitmap.Unlock();
+                                    }
+                                });
+                            }
                         }
+                        ffmpeg.av_packet_unref(_pPacket);
                     }
-                    ffmpeg.av_packet_unref(_pPacket);
                 }
             }
             catch
@@ -193,12 +197,6 @@ namespace IPCamPlayer.Classes.FFMPG
             }
             finally
             {
-                if (_poutputframe != null)
-                {
-                    var p = _poutputframe;
-                    ffmpeg.av_frame_free(&p);
-                    _poutputframe = null;
-                }
                 if (_pFrame != null)
                 {
                     ffmpeg.av_frame_free(&_pFrame);
@@ -240,11 +238,18 @@ namespace IPCamPlayer.Classes.FFMPG
             {
                 var p = _pCodecContext;
                 ffmpeg.avcodec_free_context(&p);
-                _pFormatContext = null;
+                _pCodecContext = null;
             }
             if (_pFormatContext != null)
             {
-                ffmpeg.avformat_free_context(_pFormatContext);
+                try
+                {
+                    fixed (AVFormatContext** ppFormatContext = &_pFormatContext)
+                    {
+                        ffmpeg.avformat_close_input(ppFormatContext);
+                    }
+                }
+                catch { }
                 _pFormatContext = null;
             }
         }

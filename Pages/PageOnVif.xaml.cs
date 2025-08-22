@@ -1,7 +1,12 @@
 ﻿using IPCamPlayer.Classes;
 using IPCamPlayer.Classes.FFMPG;
+using IPCamPlayer.Helpers;
 using IPCamPlayer.Helpers.VM;
+using onvifMedia2;
+using System.Collections.ObjectModel;
 using System.Security;
+using System.ServiceModel;
+using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media.Imaging;
@@ -20,50 +25,79 @@ namespace IPCamPlayer.Pages
         }
 
         private void Connect_Click(object sender, System.Windows.RoutedEventArgs e)
-        =>vm.Connect(passBox.SecurePassword);
-        
+        => vm.Connect(passBox.SecurePassword);
+
     }
     public class VMPageOnVif : VMNotifyPropretyChanged
     {
         string _Login = string.Empty;
         public string Login { get => _Login; set { if (_Login != value) { _Login = value; OnPropertyChanged(); } } }
-        string _Url = "http://10.254.158.2:90/";
+        string _Url = "";
         public string Url { get => _Url; set { if (_Url != value) { _Url = value; OnPropertyChanged(); } } }
-
         string _StatusOnvif = string.Empty;
         public string StatusOnvif { get => _StatusOnvif; set { if (_StatusOnvif != value) { _StatusOnvif = value; OnPropertyChanged(); } } }
         WriteableBitmap? _Image = null;
         public WriteableBitmap? Image { get => _Image; set { if (_Image != value) { _Image = value; OnPropertyChanged(); } } }
+        public Array Modes { get; private set; } = Enum.GetValues(typeof(BasicHttpSecurityMode));
+        public Array CredentialTypes { get; private set; } = Enum.GetValues(typeof(HttpClientCredentialType));
+        BasicHttpSecurityMode _Mode = BasicHttpSecurityMode.TransportCredentialOnly;
+        public BasicHttpSecurityMode Mode { get => _Mode; set { if (_Mode != value) { _Mode = value; OnPropertyChanged(); } } }
+
+        HttpClientCredentialType _CredentialType = HttpClientCredentialType.Digest;
+        public HttpClientCredentialType CredentialType { get => _CredentialType; set { if (_CredentialType != value) { _CredentialType = value; OnPropertyChanged(); } } }
+        public ObservableCollection<MediaToken> Profiles { get; private set; } = new();
+        MediaToken? _Profile;
+        public MediaToken? Profile { get => _Profile; set { if (_Profile != value) { _Profile = value;OnPropertyChanged(); OnProfileChanged(); } } }
+        string _Rtsp = string.Empty;
+        public string Rtsp { get => _Rtsp; set { if (_Rtsp != value) { _Rtsp = value; OnPropertyChanged(); CommandManager.InvalidateRequerySuggested(); } } }
+
+        public BCommand BCPlay {  get; private set; }
+        public BCommand BCStop { get; private set; }
 
         public event EventHandler<string>? StatusChanged;
         OnVifDev _device = new();
-        FFMPGPlayer _player=new();
+        FFMPGPlayer _player = new();
+
         public VMPageOnVif()
         {
             _device.Status += _device_Status;
             _player.OnSatus += _device_Status;
             _player.OnError += _device_Status;
             _player.OnImageSourceChanged += OmImage;
-            Task.Run(() => _player.PlayRtspInternal("rtsp://user2:Port45Fops3E@185.0.1.14:554/Streaming/Channels/1502"));
+            _player.OnPlayerSratusChanged += OnPlayerSratusChanged;
+            BCPlay = new((o)=>Task.Run(() => _player.Play(Rtsp)), (o)=>UriHelper.IsValidAbsoluteUri(Rtsp));
+            BCStop = new((o) => _player.Stop(), (o)=>_player.PlayerSratus== PlayerSratus.Play);
+            CommandManager.InvalidateRequerySuggested();
         }
-
+        void OnPlayerSratusChanged(object? o, PlayerSratus status)
+        {
+            _device_Status(o, $"Player Status: {status}");
+            CommandManager.InvalidateRequerySuggested();
+        }
         void OmImage(object? o, WriteableBitmap bitmap)
         {
-            Image=bitmap;
+            Image = bitmap;
         }
 
-        public void Connect(SecureString pass) => Task.Run(() => ConnectAsync(pass));
+        public void Connect(SecureString pass)=> Task.Run(() => ConnectAsync(pass));
 
 
         async Task ConnectAsync(SecureString pass)
         {
             try
             {
+                Application.Current.Dispatcher.Invoke(() => Profiles.Clear());
                 StatusOnvif = string.Empty;
                 StatusChanged?.Invoke(this, "Connecting to OnVifDevice");
                 CommandManager.InvalidateRequerySuggested();
                 var res = await _device.Connect(Url, pass, Login);
-                if (res) StatusChanged?.Invoke(this, $"OnVifDevice Connected. Found {_device.MediaTokens.Count} media");
+                if (res)
+                {
+                    StatusChanged?.Invoke(this, $"OnVifDevice Connected. Found {_device.MediaTokens.Count} media");
+                    foreach (var token in _device.MediaTokens)
+                        Application.Current.Dispatcher.Invoke(() => Profiles.Add(token));
+                    Profile = Profiles.FirstOrDefault();
+                }
                 else StatusChanged?.Invoke(this, $"OnVifDevice:  No media found");
                 CommandManager.InvalidateRequerySuggested();
             }
@@ -73,9 +107,18 @@ namespace IPCamPlayer.Pages
                 _device_Status(this, "Exception while Connecting to OnVifDevice");
             }
         }
+        private void OnProfileChanged()
+        {
 
+            if (Profile == null)
+            {
+                Rtsp = "";
+                return;
+            }
+            Application.Current.Dispatcher.Invoke(()=> Rtsp= Profile.Rtsp);
+        }
         private void _device_Status(object? sender, string e)
-        => StatusOnvif = $"{StatusOnvif}{DateTime.Now.ToString("HH:mm:ss")} {e}\r";
+        =>Application.Current.Dispatcher.Invoke(()=> StatusOnvif = $"{StatusOnvif}{DateTime.Now.ToString("HH:mm:ss")} {e}\r");
 
     }
 }
