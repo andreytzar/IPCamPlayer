@@ -38,10 +38,8 @@ namespace IPCamPlayer.ViewModels
             ActivatePage?.Invoke(this, b);
         }
 
-        private void OnStatusChanged(object? sender, string e)
-        {
-            throw new NotImplementedException();
-        }
+        private void OnStatusChanged(object? sender, string e) => Status = e;
+
 
     }
 }
