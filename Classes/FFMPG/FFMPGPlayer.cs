@@ -25,8 +25,14 @@ namespace IPCamPlayer.Classes.FFMPG
             }
         }
         WriteableBitmap? _Image;
-        public WriteableBitmap? Image { get => _Image; set { if (_Image != value) 
-                { _Image = value; OnPropertyChanged(); OnImageSourceChanged?.Invoke(this, value); } } }
+        public WriteableBitmap? Image
+        {
+            get => _Image; set
+            {
+                if (_Image != value)
+                { _Image = value; OnPropertyChanged(); OnImageSourceChanged?.Invoke(this, value); }
+            }
+        }
 
         public string Version { get => ffmpeg.av_version_info(); }
 
@@ -72,12 +78,12 @@ namespace IPCamPlayer.Classes.FFMPG
         void PLayerError(object? o, string text) => OnError?.Invoke(this, text);
         void PLayerStatus(object? o, string text) => OnSatus?.Invoke(this, text);
         void PlayerImageChanged(object? o, WriteableBitmap? image) =>
-            Application.Current.Dispatcher.Invoke(() => Image = image);        
+            Application.Current.Dispatcher.Invoke(() => Image = image);
         void PlayerSratusChanged(object? o, PlayerSratus stat)
-        =>PlayerSratus=stat;
+        => PlayerSratus = stat;
 
-        public void Dispose()=>Stop();
-        
+        public void Dispose() => Stop();
+
     }
 
 
@@ -89,15 +95,16 @@ namespace IPCamPlayer.Classes.FFMPG
 
     internal unsafe class InternalRtspPlayer : IDisposable
     {
-        PlayerSratus _PlayerSratus = PlayerSratus.Idle;
-        internal PlayerSratus PlayerSratus
+        private int _playerSratus = (int)PlayerSratus.Idle;
+
+        public PlayerSratus PlayerSratus
         {
-            get => _PlayerSratus;
+            get => (PlayerSratus)Interlocked.CompareExchange(ref _playerSratus, 0, 0);
             private set
             {
-                if (_PlayerSratus != value)
+                var old = (PlayerSratus)Interlocked.Exchange(ref _playerSratus, (int)value);
+                if (old != value)
                 {
-                    _PlayerSratus = value;
                     OnPlayerSratusChanged?.Invoke(this, value);
                 }
             }
@@ -123,10 +130,7 @@ namespace IPCamPlayer.Classes.FFMPG
         {
             try
             {
-                lock (_lock)
-                {
-                    PlayerSratus = PlayerSratus.Connecting;
-                }
+                PlayerSratus = PlayerSratus.Connecting;
                 Status($"Opening rtsp {rtsp}");
                 int err = 0; _videoStreamIndex = -1;
                 var formatContext = ffmpeg.avformat_alloc_context();
@@ -189,7 +193,7 @@ namespace IPCamPlayer.Classes.FFMPG
 
         void ProcessFrames()
         {
-            
+
             AVFrame* _pFrame = ffmpeg.av_frame_alloc(); ;
             AVPacket* _pPacket = ffmpeg.av_packet_alloc();
             SwsContext* _pSwsContext = null;
@@ -220,10 +224,8 @@ namespace IPCamPlayer.Classes.FFMPG
                         ref dstData, ref dstLinesize, pBuffer,
                         AVPixelFormat.AV_PIX_FMT_BGR24, width, height, 1
                     );
-                    lock (_lock)
-                    {
-                        PlayerSratus = PlayerSratus.Play;
-                    }
+
+                    PlayerSratus = PlayerSratus.Play;
                     while (PlayerSratus == PlayerSratus.Play)
                     {
                         if (ffmpeg.av_read_frame(_pFormatContext, _pPacket) < 0)
@@ -317,7 +319,7 @@ namespace IPCamPlayer.Classes.FFMPG
                         fixed (AVFormatContext** ppFormatContext = &_pFormatContext)
                         {
                             ffmpeg.avformat_close_input(ppFormatContext);
-                            ffmpeg.avformat_free_context(_pFormatContext);
+                            //ffmpeg.avformat_free_context(_pFormatContext);
                         }
                     }
                     catch { }
@@ -333,10 +335,8 @@ namespace IPCamPlayer.Classes.FFMPG
         }
         void Status(string text) => OnSatus?.Invoke(this, $"FFmpeg info: {text}");
 
-        public void Dispose()
-        {
+        public void Dispose() =>
             PlayerSratus = PlayerSratus.Stopped;
-        }
-    }
 
+    }
 }

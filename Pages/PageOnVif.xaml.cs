@@ -1,7 +1,8 @@
-﻿using IPCamPlayer.Classes;
+﻿
 using IPCamPlayer.Classes.FFMPG;
-using IPCamPlayer.Helpers;
 using IPCamPlayer.Helpers.VM;
+using OnVifLibrary;
+using OnVifLibrary.Helpers;
 using System.Collections.ObjectModel;
 using System.Runtime.InteropServices;
 using System.Security;
@@ -51,7 +52,7 @@ namespace IPCamPlayer.Pages
         public HttpClientCredentialType CredentialType { get => _CredentialType; set { if (_CredentialType != value) { _CredentialType = value; OnPropertyChanged(); } } }
         public ObservableCollection<MediaToken> Profiles { get; private set; } = new();
         MediaToken? _Profile;
-        public MediaToken? Profile { get => _Profile; set { if (_Profile != value) { _Profile = value;OnPropertyChanged(); OnProfileChanged(); } } }
+        public MediaToken? Profile { get => _Profile; set { if (_Profile != value) { _Profile = value;OnPropertyChanged(); OnProfileChanged(); CommandManager.InvalidateRequerySuggested(); } } }
         string _Rtsp = string.Empty;
         public string Rtsp { get => _Rtsp; set { if (_Rtsp != value) { _Rtsp = value; OnPropertyChanged(); CommandManager.InvalidateRequerySuggested(); } } }
 
@@ -123,7 +124,6 @@ namespace IPCamPlayer.Pages
                 Rtsp = "";
                 return;
             }
-            
             Application.Current.Dispatcher.Invoke(() => { Rtsp = UriHelper.UrlToURLWithCredentials(Profile.Rtsp, Login, UnsecureString(_pass));  Play(); });
         }
         private void _device_Status(object? sender, string e)

@@ -15,12 +15,6 @@
 		<PackageReference Include="System.ServiceModel.NetTcp" Version="8.*" />
 	</ItemGroup>
 
-
-
-	<ItemGroup>
-		<ProjectReference Include="..\..\..\NEW_WORK\VIY_TERMINAL_PROJECT\GENERIC_LIBRARY\OnVifLibrary\OnVifLibrary.csproj" />
-	</ItemGroup>
-
 	<ItemGroup>
 		<None Update="FFMPEG\avcodec-61.dll">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
@@ -50,6 +44,10 @@
 
 	<ItemGroup>
 		<Folder Include="Models\" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <ProjectReference Include="..\OnVifLibrary\OnVifLibrary.csproj" />
 	</ItemGroup>
 
 
