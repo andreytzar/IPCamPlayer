@@ -2,8 +2,8 @@
 using IPCamPlayer.Classes.FFMPG;
 using IPCamPlayer.Helpers;
 using IPCamPlayer.Helpers.VM;
-using onvifMedia2;
 using System.Collections.ObjectModel;
+using System.Runtime.InteropServices;
 using System.Security;
 using System.ServiceModel;
 using System.Windows;
@@ -13,7 +13,7 @@ using System.Windows.Media.Imaging;
 
 namespace IPCamPlayer.Pages
 {
-    public partial class PageOnVif : Page
+    public partial class PageOnVif : Page, IDisposable
     {
         public event EventHandler<string> StatusChanged { add { vm.StatusChanged += value; } remove { vm.StatusChanged -= value; } }
         VMPageOnVif vm;
@@ -27,8 +27,12 @@ namespace IPCamPlayer.Pages
         private void Connect_Click(object sender, System.Windows.RoutedEventArgs e)
         => vm.Connect(passBox.SecurePassword);
 
+        public void Dispose()
+        {
+            vm.Dispose();
+        }
     }
-    public class VMPageOnVif : VMNotifyPropretyChanged
+    public class VMPageOnVif : VMNotifyPropretyChanged, IDisposable
     {
         string _Login = string.Empty;
         public string Login { get => _Login; set { if (_Login != value) { _Login = value; OnPropertyChanged(); } } }
@@ -36,8 +40,8 @@ namespace IPCamPlayer.Pages
         public string Url { get => _Url; set { if (_Url != value) { _Url = value; OnPropertyChanged(); } } }
         string _StatusOnvif = string.Empty;
         public string StatusOnvif { get => _StatusOnvif; set { if (_StatusOnvif != value) { _StatusOnvif = value; OnPropertyChanged(); } } }
-        WriteableBitmap? _Image = null;
-        public WriteableBitmap? Image { get => _Image; set { if (_Image != value) { _Image = value; OnPropertyChanged(); } } }
+        //WriteableBitmap? _Image = null;
+        public WriteableBitmap? Image { get => _player.Image; }
         public Array Modes { get; private set; } = Enum.GetValues(typeof(BasicHttpSecurityMode));
         public Array CredentialTypes { get; private set; } = Enum.GetValues(typeof(HttpClientCredentialType));
         BasicHttpSecurityMode _Mode = BasicHttpSecurityMode.TransportCredentialOnly;
@@ -57,7 +61,7 @@ namespace IPCamPlayer.Pages
         public event EventHandler<string>? StatusChanged;
         OnVifDev _device = new();
         FFMPGPlayer _player = new();
-
+        SecureString _pass;
         public VMPageOnVif()
         {
             _device.Status += _device_Status;
@@ -65,7 +69,7 @@ namespace IPCamPlayer.Pages
             _player.OnError += _device_Status;
             _player.OnImageSourceChanged += OmImage;
             _player.OnPlayerSratusChanged += OnPlayerSratusChanged;
-            BCPlay = new((o)=>Task.Run(() => _player.Play(Rtsp)), (o)=>UriHelper.IsValidAbsoluteUri(Rtsp));
+            BCPlay = new((o)=> Play(), (o)=>UriHelper.IsValidAbsoluteUri(Rtsp));
             BCStop = new((o) => _player.Stop(), (o)=>_player.PlayerSratus== PlayerSratus.Play);
             CommandManager.InvalidateRequerySuggested();
         }
@@ -76,11 +80,15 @@ namespace IPCamPlayer.Pages
         }
         void OmImage(object? o, WriteableBitmap bitmap)
         {
-            Image = bitmap;
+            OnPropertyChanged(nameof(Image));
         }
 
-        public void Connect(SecureString pass)=> Task.Run(() => ConnectAsync(pass));
+        public void Connect(SecureString pass) {
+            _pass = pass; Task.Run(() => ConnectAsync(pass));
+        }
 
+        void Play() =>Task.Run(() => _player.Play(Rtsp));
+        
 
         async Task ConnectAsync(SecureString pass)
         {
@@ -115,10 +123,29 @@ namespace IPCamPlayer.Pages
                 Rtsp = "";
                 return;
             }
-            Application.Current.Dispatcher.Invoke(()=> Rtsp= Profile.Rtsp);
+            
+            Application.Current.Dispatcher.Invoke(() => { Rtsp = UriHelper.UrlToURLWithCredentials(Profile.Rtsp, Login, UnsecureString(_pass));  Play(); });
         }
         private void _device_Status(object? sender, string e)
-        =>Application.Current.Dispatcher.Invoke(()=> StatusOnvif = $"{StatusOnvif}{DateTime.Now.ToString("HH:mm:ss")} {e}\r");
+            =>Application.Current.Dispatcher.Invoke(()=> 
+                StatusOnvif = $"{StatusOnvif}{DateTime.Now.ToString("HH:mm:ss")} {e}\r");
 
+        public void Dispose()
+        {
+            _player.Stop();
+        }
+        static string UnsecureString(SecureString secure)
+        {
+            IntPtr ptr = IntPtr.Zero;
+            try
+            {
+                ptr = Marshal.SecureStringToGlobalAllocUnicode(secure);
+                return Marshal.PtrToStringUni(ptr)!;
+            }
+            finally
+            {
+                Marshal.ZeroFreeGlobalAllocUnicode(ptr);
+            }
+        }
     }
 }

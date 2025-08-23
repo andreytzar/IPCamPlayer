@@ -80,7 +80,7 @@ namespace IPCamPlayer.Classes
                 if (await GetServices())
                 {
                     var serviceMedia = _services.FirstOrDefault(x => x.Namespace.Contains(nsMedia, StringComparison.InvariantCultureIgnoreCase));
-                    if (serviceMedia != null) 
+                    if (serviceMedia != null)
                     {
                         _media = new MediaClient(bind, new(serviceMedia.XAddr));
                         OnVifCamera.SetClientCredentials(_media.ClientCredentials, password, login);
@@ -94,7 +94,7 @@ namespace IPCamPlayer.Classes
                                 string snapshot = await GetMediaShapShotUri(prof.token);
                                 if (!string.IsNullOrEmpty(rtsp))
                                 {
-                                    MediaTokens.Add(new() { Name=$"Media: {prof.Name}", Rtsp = rtsp, Token=prof.token, SnapShot=snapshot });
+                                    MediaTokens.Add(new() { Name = $"Media: {prof.Name}", Rtsp = rtsp, Token = prof.token, SnapShot = snapshot });
                                     Status?.Invoke(this, $"{prof.token}:\r{rtsp}\r{snapshot}");
                                 }
                             }
@@ -122,7 +122,7 @@ namespace IPCamPlayer.Classes
                         }
                     }
                 }
-                if (MediaTokens.Count>0) Status?.Invoke(this, $"OnVif Device connected: Found {MediaTokens.Count} media");
+                if (MediaTokens.Count > 0) Status?.Invoke(this, $"OnVif Device connected: Found {MediaTokens.Count} media");
                 else Status?.Invoke(this, $"OnVif Device: no media found");
                 return MediaTokens.Count > 0;
             }
@@ -152,7 +152,7 @@ namespace IPCamPlayer.Classes
         {
             try
             {
-                if (_media==null) return string.Empty;
+                if (_media == null) return string.Empty;
                 var res = await _media.GetSnapshotUriAsync(token);
                 if (res == null) return string.Empty;
                 return res.Uri;
@@ -183,7 +183,7 @@ namespace IPCamPlayer.Classes
                 return "";
             }
         }
-         async Task<string> GetMedia2ShapShotUri(string token)
+        async Task<string> GetMedia2ShapShotUri(string token)
         {
             try
             {
@@ -197,11 +197,11 @@ namespace IPCamPlayer.Classes
                 return "";
             }
         }
-         async Task<string> GetMedia2StreamRtspUri(string token)
+        async Task<string> GetMedia2StreamRtspUri(string token)
         {
             try
             {
-                if (_media2==null) return string.Empty;
+                if (_media2 == null) return string.Empty;
                 var res = await _media2.GetStreamUriAsync("rtsp", token);
                 return res?.Uri ?? "";
             }
@@ -247,7 +247,7 @@ namespace IPCamPlayer.Classes
     public class MediaToken
     {
         public string Name { get; set; } = string.Empty;
-        public string Token {  get; set; }=string.Empty;
+        public string Token { get; set; } = string.Empty;
         public string Rtsp { get; set; } = string.Empty;
         public string SnapShot { get; set; } = string.Empty;
     }

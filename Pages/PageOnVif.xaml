@@ -17,7 +17,7 @@
                 <RowDefinition Height="150"/>
             </Grid.RowDefinitions>
             <Grid Background="LightGray">
-                <Image Source="{Binding Image}" Stretch="Uniform"/>
+                <Image Source="{Binding Image, Mode=OneWay}" Stretch="Uniform"/>
             </Grid>
             <GridSplitter HorizontalAlignment="Stretch" Background="Gray" Grid.Row="1"/>
             <Grid Grid.Row="2" Margin="3">
